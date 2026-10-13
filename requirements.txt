@@ -2,4 +2,5 @@ flask
 flask-socketio
 treys
 gunicorn
-eventlet
+gevent
+gevent-websocket
