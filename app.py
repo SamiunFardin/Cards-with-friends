@@ -8,6 +8,8 @@ from twenty_nine_engine import TwentyNineRoom
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'casino-lounge-secret-456')
+
+# Using threading async_mode for stable direct Python execution on Render
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 rooms = {}
@@ -84,23 +86,28 @@ def handle_reject_join(data):
             socketio.emit('kicked', {'message': 'Host rejected your join request.'}, to=target_sid)
             broadcast_room_state(room_id)
 
-@socketio.on('reject_add_cash')
-def handle_reject_add_cash(data):
-    room_id = data.get('room_id', '').strip().upper()
-    target_sid = data.get('sid')
-    if room_id in rooms and isinstance(rooms[room_id], PokerRoom):
-        room = rooms[room_id]
-        if request.sid == room.host_sid:
-            room.pending_add_cash = [c for c in room.pending_add_cash if c['sid'] != target_sid]
-            socketio.emit('notification', {'title': 'Rejected', 'message': 'Host rejected your cash top-up.'}, to=target_sid)
-            broadcast_room_state(room_id)
-
 @socketio.on('player_action')
 def handle_player_action(data):
     room_id = data.get('room_id', '').strip().upper()
     if room_id in rooms and isinstance(rooms[room_id], PokerRoom):
         room = rooms[room_id]
         success, msg, _ = room.process_action(request.sid, data.get('action'), float(data.get('amount', 0)))
+        if not success: emit('error', {'message': msg})
+        broadcast_room_state(room_id)
+
+@socketio.on('cb_bid')
+def handle_cb_bid(data):
+    room_id = data.get('room_id', '').strip().upper()
+    if room_id in rooms and isinstance(rooms[room_id], CallBridgeRoom):
+        success, msg = rooms[room_id].place_bid(request.sid, int(data.get('call', 1)))
+        if not success: emit('error', {'message': msg})
+        broadcast_room_state(room_id)
+
+@socketio.on('cb_play')
+def handle_cb_play(data):
+    room_id = data.get('room_id', '').strip().upper()
+    if room_id in rooms and isinstance(rooms[room_id], CallBridgeRoom):
+        success, msg = rooms[room_id].play_card(request.sid, data.get('card'))
         if not success: emit('error', {'message': msg})
         broadcast_room_state(room_id)
 
