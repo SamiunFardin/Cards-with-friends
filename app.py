@@ -121,4 +121,5 @@ def broadcast_room_state(room_id):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port)
+    # allow_unsafe_werkzeug=True bypasses the production restriction when running python app.py directly
+    socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
